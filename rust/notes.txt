@@ -1,0 +1,3 @@
+https://github.com/MabezDev/xtensa-rust-quickstart
+https://mabez.dev/blog/posts/esp32-rust/
+https://docs.rust-embedded.org/discovery/
