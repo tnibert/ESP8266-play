@@ -1,4 +1,7 @@
 """
+Runs on ESP8266
+Read from temperature sensor and send to both oled display and remote socket
+
 https://arduinomodules.info/ky-013-analog-temperature-sensor-module/
 On my sensor, ground and vcc seem to be switched, which is apparently common
 plugged into 3v3
@@ -7,6 +10,8 @@ from machine import Pin, ADC, I2C
 from time import sleep
 from math import log
 import ssd1306
+import socket
+import network
 
 # pin constants
 SCL = 5
@@ -66,12 +71,48 @@ class Temperature:
         # to human readable
         hr = self.convert()
         self.output_oled(hr["K"], hr["C"], hr["F"])
+        return self.analog_value
 
 
 class Network:
-    pass
+    def do_connect(self):
+        self.wlan = network.WLAN(network.STA_IF)
+        self.wlan.active(True)
+        if not self.wlan.isconnected():
+            print('connecting to network...')
+            self.wlan.connect('essid', 'password')
+            while not self.wlan.isconnected():
+                pass
+        print('network config:', self.wlan.ifconfig())
+
+    def __init__(self):
+        # connect to wifi
+        self.do_connect()
+
+        # todo: separate this into own function
+        # for socket connection
+        self.host = "192.168.1.8"
+        self.port = 65432
+        self.sock = socket.socket()
+        self.sock.connect((self.host, self.port))
+
+    def send(self, msg):
+        self.sock.send((str(msg) + "\n").encode())
+
+    def close(self):
+        self.sock.close()
+        #self.sock.shutdown(socket.SHUT_RDWR)
 
 t = Temperature()
+n = Network()
+
 while True:
-    t.update()
-    sleep(0.1)
+    try:
+        n.send(t.update())
+    except OSError as e:
+        # todo: make this error handling more meaningful
+        print(e)
+        print("Failed to send data over network")
+        n.close()
+        break
+    sleep(1)
