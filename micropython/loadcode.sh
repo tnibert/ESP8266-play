@@ -6,3 +6,4 @@
 
 # load code onto system (persistent across restarts)
 ampy -b 115200 -p /dev/ttyUSB0 put temperature-network/main.py
+while [ $? -ne 0 ]; do ampy -b 115200 -p /dev/ttyUSB0 put temperature-network/main.py; done
