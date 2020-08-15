@@ -13,14 +13,33 @@ import ssd1306
 import socket
 import network
 
+RECONNECT_SLEEP = 5
+SEND_SLEEP = 60
+
 # pin constants
 SCL = 5
 SDA = 4
 
-# oled setup
-i2c = I2C(-1, scl=Pin(SCL), sda=Pin(SDA))
-width, height = 64, 48
-oled = ssd1306.SSD1306_I2C(width, height, i2c)
+
+class OledPrinter:
+    def __init__(self):
+        self.lineheight = 10
+
+        # oled setup
+        i2c = I2C(-1, scl=Pin(SCL), sda=Pin(SDA))
+        width, height = 64, 48
+        self.oled = ssd1306.SSD1306_I2C(width, height, i2c)
+
+    def display(self, message):
+        lines = message.split("\n")
+        self.oled.fill(0)
+
+        ypos = 0
+        for line in lines:
+            self.oled.text(line, 0, ypos, 1)
+            ypos += self.lineheight
+
+        self.oled.show()
 
 
 class Temperature:
@@ -53,29 +72,29 @@ class Temperature:
         TF = (TC * 9.0) / 5.0 + 32.0                                        # convert Celcius to Farenheit
         return {"K": TK, "C": TC, "F": TF}
 
-    def output_oled(self, k, c, f):
-        # output raw value
-        oled.fill(0)
-        oled.text(str(self.analog_value), 0, 30, 1)
-
-        # output converted values
-        # oled.fill(0)
-        oled.text(str(int(k)) + " K", 0, 0, 1)
-        oled.text(str(int(c)) + " C", 0, 10, 1)
-        oled.text(str(int(f)) + " F", 0, 20, 1)
-
-        oled.show()
+    # def output_oled(self, k, c, f):
+    #     # output raw value
+    #     oled.fill(0)
+    #     oled.text(str(self.analog_value), 0, 30, 1)
+    #
+    #     # output converted values
+    #     # oled.fill(0)
+    #     oled.text(str(int(k)) + " K", 0, 0, 1)
+    #     oled.text(str(int(c)) + " C", 0, 10, 1)
+    #     oled.text(str(int(f)) + " F", 0, 20, 1)
+    #
+    #     oled.show()
 
     def update(self):
         self.read()
         # to human readable
-        hr = self.convert()
-        self.output_oled(hr["K"], hr["C"], hr["F"])
+        #hr = self.convert()
+        #self.output_oled(hr["K"], hr["C"], hr["F"])
         return self.analog_value
 
 
 class Network:
-    def do_connect(self):
+    def do_connect_wifi(self):
         self.wlan = network.WLAN(network.STA_IF)
         self.wlan.active(True)
         if not self.wlan.isconnected():
@@ -87,12 +106,14 @@ class Network:
 
     def __init__(self):
         # connect to wifi
-        self.do_connect()
+        self.do_connect_wifi()
 
-        # todo: separate this into own function
         # for socket connection
         self.host = "192.168.1.8"
         self.port = 65432
+        self.connect_sock()
+
+    def connect_sock(self):
         self.sock = socket.socket()
         self.sock.connect((self.host, self.port))
 
@@ -103,16 +124,42 @@ class Network:
         self.sock.close()
         #self.sock.shutdown(socket.SHUT_RDWR)
 
+o = OledPrinter()
 t = Temperature()
-n = Network()
+
+o.display("Connecting")
+try:
+    n = Network()
+except Exception as e:
+    print(e)
+    o.display("ConnFail")
+    raise e
+o.display("Connected")
 
 while True:
     try:
-        n.send(t.update())
-    except OSError as e:
-        # todo: make this error handling more meaningful
-        print(e)
+        o.display("try")
+        # todo: send an average
+        val = t.update()
+        o.display(val)
+        n.send(val)
+        sleep(SEND_SLEEP)
+    except OSError as e1:
+        o.display("e1")
+        print(e1)
         print("Failed to send data over network")
         n.close()
-        break
-    sleep(1)
+        # try to reconnect
+        recon_success = False
+        while not recon_success:
+            try:
+                o.display("recon")
+                sleep(RECONNECT_SLEEP)
+                n.connect_sock()
+            except OSError as e2:
+                o.display("e2")
+                continue
+            except Exception as e3:
+                print(e3)
+                o.display("e3")
+            recon_success = True
