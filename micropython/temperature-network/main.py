@@ -14,7 +14,7 @@ import socket
 import network
 
 RECONNECT_SLEEP = 5
-SEND_SLEEP = 60
+SEND_SLEEP = 1
 
 # pin constants
 SCL = 5
@@ -30,11 +30,11 @@ class OledPrinter:
         width, height = 64, 48
         self.oled = ssd1306.SSD1306_I2C(width, height, i2c)
 
-    def display(self, message):
-        lines = message.split("\n")
+    def display(self, message, start=0):
+        lines = str(message).split("\n")
         self.oled.fill(0)
 
-        ypos = 0
+        ypos = start
         for line in lines:
             self.oled.text(line, 0, ypos, 1)
             ypos += self.lineheight
@@ -72,19 +72,6 @@ class Temperature:
         TF = (TC * 9.0) / 5.0 + 32.0                                        # convert Celcius to Farenheit
         return {"K": TK, "C": TC, "F": TF}
 
-    # def output_oled(self, k, c, f):
-    #     # output raw value
-    #     oled.fill(0)
-    #     oled.text(str(self.analog_value), 0, 30, 1)
-    #
-    #     # output converted values
-    #     # oled.fill(0)
-    #     oled.text(str(int(k)) + " K", 0, 0, 1)
-    #     oled.text(str(int(c)) + " C", 0, 10, 1)
-    #     oled.text(str(int(f)) + " F", 0, 20, 1)
-    #
-    #     oled.show()
-
     def update(self):
         self.read()
         # to human readable
@@ -93,43 +80,43 @@ class Temperature:
         return self.analog_value
 
 
-class Network:
-    def do_connect_wifi(self):
-        self.wlan = network.WLAN(network.STA_IF)
-        self.wlan.active(True)
-        if not self.wlan.isconnected():
-            print('connecting to network...')
-            self.wlan.connect('essid', 'password')
-            while not self.wlan.isconnected():
-                pass
-        print('network config:', self.wlan.ifconfig())
+def http_post(url, port, data):
+    _, _, host, path = url.split('/', 3)
+    addr = socket.getaddrinfo(host, port)[0][-1]
+    s = socket.socket()
+    s.connect(addr)
 
-    def __init__(self):
-        # connect to wifi
-        self.do_connect_wifi()
+    # todo: this is wrong, fix
+    post_text = 'POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %s\r\n\r\n{"value": "%s"}' % (path, host, str(13+len(str(data))), str(data))
 
-        # for socket connection
-        self.host = "192.168.1.8"
-        self.port = 65432
-        self.connect_sock()
+    s.send(bytes(post_text, 'utf8'))
+    while True:
+        data = s.recv(100)
+        if data:
+            print(str(data, 'utf8'), end='')
+        else:
+            break
+    s.close()
 
-    def connect_sock(self):
-        self.sock = socket.socket()
-        self.sock.connect((self.host, self.port))
 
-    def send(self, msg):
-        self.sock.send((str(msg) + "\n").encode())
+def do_connect_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        print('connecting to network...')
+        wlan.connect('essid', 'password')
+        while not wlan.isconnected():
+            pass
+    print('network config:', wlan.ifconfig())
+    return wlan
 
-    def close(self):
-        self.sock.close()
-        #self.sock.shutdown(socket.SHUT_RDWR)
 
 o = OledPrinter()
 t = Temperature()
 
 o.display("Connecting")
 try:
-    n = Network()
+    w = do_connect_wifi()
 except Exception as e:
     print(e)
     o.display("ConnFail")
@@ -137,29 +124,13 @@ except Exception as e:
 o.display("Connected")
 
 while True:
+    # todo: send an average
+    val = t.update()
+    o.display(val)
     try:
-        o.display("try")
-        # todo: send an average
-        val = t.update()
-        o.display(val)
-        n.send(val)
-        sleep(SEND_SLEEP)
-    except OSError as e1:
-        o.display("e1")
-        print(e1)
-        print("Failed to send data over network")
-        n.close()
-        # try to reconnect
-        recon_success = False
-        while not recon_success:
-            try:
-                o.display("recon")
-                sleep(RECONNECT_SLEEP)
-                n.connect_sock()
-            except OSError as e2:
-                o.display("e2")
-                continue
-            except Exception as e3:
-                print(e3)
-                o.display("e3")
-            recon_success = True
+        http_post("http://192.168.1.8/", 8080, val)
+    except Exception as e:
+        print(e)
+        o.display("{}\nSENDFAIL".format(val))
+
+    sleep(SEND_SLEEP)
