@@ -1,10 +1,10 @@
 """
 Runs on ESP8266
-Read from temperature sensor and send to both oled display and remote socket
+Read from temperature sensor and send to both oled display and remote HTTP server
 
 https://arduinomodules.info/ky-013-analog-temperature-sensor-module/
 On my sensor, ground and vcc seem to be switched, which is apparently common
-plugged into 3v3
+Plugged into 3v3
 """
 from machine import Pin, ADC, I2C
 from time import sleep
@@ -13,7 +13,9 @@ import ssd1306
 import socket
 import network
 
-RECONNECT_SLEEP = 5
+ESSID = "an_essid"
+WIFIPASS = "a_password"
+
 SEND_SLEEP = 1
 
 # pin constants
@@ -86,8 +88,10 @@ def http_post(url, port, data):
     s = socket.socket()
     s.connect(addr)
 
-    # todo: this is wrong, fix
-    post_text = 'POST %s HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %s\r\n\r\n{"value": "%s"}' % (path, host, str(13+len(str(data))), str(data))
+    post_text = 'POST /%s HTTP/1.1\r\n'\
+                'Host: %s\r\n'\
+                'Content-Type: application/json\r\n'\
+                'Content-Length: %s\r\n\r\n{"value": %s}' % (path, host, str(11+len(str(data))), str(data))
 
     s.send(bytes(post_text, 'utf8'))
     while True:
@@ -99,12 +103,12 @@ def http_post(url, port, data):
     s.close()
 
 
-def do_connect_wifi():
+def do_connect_wifi(essid, password):
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     if not wlan.isconnected():
         print('connecting to network...')
-        wlan.connect('essid', 'password')
+        wlan.connect(essid, password)
         while not wlan.isconnected():
             pass
     print('network config:', wlan.ifconfig())
@@ -116,7 +120,7 @@ t = Temperature()
 
 o.display("Connecting")
 try:
-    w = do_connect_wifi()
+    w = do_connect_wifi(ESSID, WIFIPASS)
 except Exception as e:
     print(e)
     o.display("ConnFail")
@@ -128,7 +132,7 @@ while True:
     val = t.update()
     o.display(val)
     try:
-        http_post("http://192.168.1.8/", 8080, val)
+        http_post("http://192.168.1.8/tempreceive", 8080, val)
     except Exception as e:
         print(e)
         o.display("{}\nSENDFAIL".format(val))
