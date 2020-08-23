@@ -1,1 +1,2 @@
+I am using a wemos d1 mini esp8266
 https://www.espressif.com/en/products/socs/esp8266ex/resources

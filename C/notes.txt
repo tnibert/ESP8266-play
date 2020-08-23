@@ -1,0 +1,9 @@
+https://hackaday.io/project/160006-esp8266-sdk-tutorials
+
+https://hackaday.io/project/160006/instructions - for build toolchain setup
+"The address 0x3FC000 is assuming you have a 32Mbit flash chip, like the Adafruit Feather HUZZAH does." - check this if you have problems:
+Flash Size	Address to flash esp_init_data_default.bin
+32Mbit (4MByte)	0x3FC000
+16Mbit (2MByte)	0x1FC000
+8Mbit (1MByte)	0xFC000
+4Mbit (0.5MByte)	0x7C000
