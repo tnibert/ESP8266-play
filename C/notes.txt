@@ -7,3 +7,9 @@ Flash Size	Address to flash esp_init_data_default.bin
 16Mbit (2MByte)	0x1FC000
 8Mbit (1MByte)	0xFC000
 4Mbit (0.5MByte)	0x7C000
+
+-----------------------------------
+
+Info for buzzer, uses PWM:
+https://arduinomodules.info/ky-006-passive-buzzer-module/
+https://www.thegeekpub.com/wiki/sensor-wiki-ky-006-passive-piezo-buzzer-module/
