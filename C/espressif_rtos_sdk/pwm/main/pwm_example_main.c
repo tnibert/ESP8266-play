@@ -24,11 +24,7 @@
 
 #include "driver/pwm.h"
 
-
-#define PWM_0_OUT_IO_NUM   12
-#define PWM_1_OUT_IO_NUM   13
-#define PWM_2_OUT_IO_NUM   14
-#define PWM_3_OUT_IO_NUM   15
+#define PWM_0_OUT_IO_NUM   2
 
 // PWM period 1000us(1Khz), same as depth
 #define PWM_PERIOD    (1000)
@@ -36,26 +32,23 @@
 static const char *TAG = "pwm_example";
 
 // pwm pin number
-const uint32_t pin_num[4] = {
-    PWM_0_OUT_IO_NUM,
-    PWM_1_OUT_IO_NUM,
-    PWM_2_OUT_IO_NUM,
-    PWM_3_OUT_IO_NUM
+const uint32_t pin_num[1] = {
+    PWM_0_OUT_IO_NUM
 };
 
 // duties table, real_duty = duties[x]/PERIOD
-uint32_t duties[4] = {
-    500, 500, 500, 500,
+uint32_t duties[1] = {
+    500
 };
 
 // phase table, delay = (phase[x]/360)*PERIOD
 int16_t phase[4] = {
-    0, 0, 90, -90,
+    0
 };
 
 void app_main()
 {
-    pwm_init(PWM_PERIOD, duties, 4, pin_num);
+    pwm_init(PWM_PERIOD, duties, 1, pin_num);
     pwm_set_channel_invert(0x1 << 0);
     pwm_set_phases(phase);
     pwm_start();
@@ -63,7 +56,7 @@ void app_main()
 
     while (1) {
         if (count == 20) {
-            // channel0, 1 output hight level.
+            // channel0, 1 output high level.
             // channel2, 3 output low level.
             pwm_stop(0x3);
             ESP_LOGI(TAG, "PWM stop\n");
