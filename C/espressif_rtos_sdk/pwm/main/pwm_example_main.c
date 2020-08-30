@@ -55,12 +55,11 @@ void app_main()
     int16_t count = 0;
 
     while (1) {
-        if (count == 20) {
-            // channel0, 1 output high level.
-            // channel2, 3 output low level.
-            pwm_stop(0x3);
+        if (count == 10) {
+            pwm_stop(0x1);
             ESP_LOGI(TAG, "PWM stop\n");
-        } else if (count == 30) {
+        } else if (count == 20) {
+            // this is not restarting correctly
             pwm_start();
             ESP_LOGI(TAG, "PWM re-start\n");
             count = 0;
